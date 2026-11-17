@@ -1,0 +1,926 @@
+{
+  "datasets": [
+    {
+      "name": "7acb57bd",
+      "displayName": "Global Carbon Emissions by Location Dataset 2023",
+      "queryLines": [
+        "SELECT \r\n",
+        "  latitude, \r\n",
+        "  longitude, \r\n",
+        "  `GHG emissions mtons CO2e` AS Emissions\r\n",
+        "FROM emissions.default.emissions_data_2023\r\n"
+      ],
+      "catalog": "emissions",
+      "schema": "default"
+    },
+    {
+      "name": "eb7d8f07",
+      "displayName": "County Wise Per Capita Emissions Ranking Dataset",
+      "queryLines": [
+        "SELECT county_state_name,\r\n",
+        "  population,\r\n",
+        "  CAST(REPLACE(`GHG emissions mtons CO2e`, ',', '') AS DOUBLE) / NULLIF(CAST(population AS DOUBLE), 0) AS Emissions_per_person\r\n",
+        "FROM emissions_data_2023\r\n",
+        "ORDER BY Emissions_per_person DESC\r\n"
+      ],
+      "catalog": "emissions",
+      "schema": "default"
+    },
+    {
+      "name": "7ad6acf2",
+      "displayName": "Top Fifteeen States by Greenhouse Gas Emissions Summary",
+      "queryLines": [
+        "WITH top15 AS (\n",
+        "SELECT state_abbr,\r\n",
+        " SUM (CAST(REPLACE(`GHG emissions mtons CO2e`, ',', '') \r\n",
+        " AS DOUBLE\r\n",
+        " )) AS Total_emissions\r\n",
+        "FROM emissions_data_2023\r\n",
+        "GROUP BY state_abbr\r\n",
+        "ORDER BY Total_emissions DESC\r\n",
+        "LIMIT 15\n",
+        ")\n",
+        "SELECT state_abbr,\n",
+        "  Total_emissions,\n",
+        "  Total_emissions / SUM(Total_emissions) OVER () AS pct_of_total\n",
+        "FROM top15\n",
+        "ORDER BY Total_emissions DESC"
+      ],
+      "catalog": "emissions",
+      "schema": "default"
+    },
+    {
+      "name": "939c4355",
+      "displayName": "Top Fifteen States Contribution To Total Emissions Percent",
+      "queryLines": [
+        "WITH state_totals AS (\r\n",
+        "  SELECT\r\n",
+        "    state_abbr,\r\n",
+        "    SUM(CAST(REPLACE(`GHG emissions mtons CO2e`, ',', '') AS DOUBLE)) AS state_emissions\r\n",
+        "  FROM emissions.default.emissions_data_2023\r\n",
+        "  GROUP BY state_abbr\r\n",
+        "),\r\n",
+        "top_15 AS (\r\n",
+        "  SELECT state_abbr, state_emissions\r\n",
+        "  FROM state_totals\r\n",
+        "  ORDER BY state_emissions DESC\r\n",
+        "  LIMIT 15\r\n",
+        "),\n",
+        "pct AS (\n",
+        "  SELECT 100.0 * SUM(t.state_emissions) / (SELECT SUM(state_emissions) FROM state_totals) AS top_15_pct\n",
+        "  FROM top_15 t\n",
+        ")\n",
+        "SELECT 'Top 15 states' AS segment,\n",
+        "  top_15_pct / 100.0 AS share\n",
+        "FROM pct\n",
+        "UNION ALL\n",
+        "SELECT 'Other states' AS segment,\n",
+        "  1.0 - top_15_pct / 100.0 AS share\n",
+        "FROM pct"
+      ],
+      "catalog": "emissions",
+      "schema": "default"
+    },
+    {
+      "name": "8fbe5c3f",
+      "displayName": "Employment and Vehicle Travel by State Summary",
+      "queryLines": [
+        "WITH state_totals AS (\r\n",
+        "  SELECT\r\n",
+        "    state_abbr,\r\n",
+        "    SUM(employment) AS employment,\r\n",
+        "    SUM(population) AS population,\r\n",
+        "    SUM(CAST(REPLACE(`vehicle miles traveled (miles)`, ',', '') AS DOUBLE)) AS vehicle_miles_traveled,\r\n",
+        "    SUM(CAST(REPLACE(`GHG emissions mtons CO2e`, ',', '') AS DOUBLE)) AS total_emissions\r\n",
+        "  FROM emissions.default.emissions_data_2023\r\n",
+        "  GROUP BY state_abbr\r\n",
+        ")\r\n",
+        "SELECT\r\n",
+        "  state_abbr,\r\n",
+        "  employment,\r\n",
+        "  vehicle_miles_traveled,\r\n",
+        "  total_emissions,\r\n",
+        "  total_emissions / NULLIF(CAST(employment AS DOUBLE), 0) AS emissions_per_job,  vehicle_miles_traveled / NULLIF(CAST(population AS DOUBLE), 0) AS vehicle_miles_per_person,\n",
+        "  ROW_NUMBER() OVER (ORDER BY total_emissions DESC) AS emissions_rank\n",
+        "FROM state_totals\r\n",
+        "ORDER BY state_abbr"
+      ],
+      "catalog": "emissions",
+      "schema": "default"
+    }
+  ],
+  "pages": [
+    {
+      "name": "22e925d1",
+      "displayName": "Emissions Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "emissions-per-location",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "7acb57bd",
+                  "fields": [
+                    {
+                      "name": "latitude",
+                      "expression": "`latitude`"
+                    },
+                    {
+                      "name": "longitude",
+                      "expression": "`longitude`"
+                    },
+                    {
+                      "name": "Emissions",
+                      "expression": "`Emissions`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Emissions per Location",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "symbol-map",
+              "encodings": {
+                "coordinates": {
+                  "latitude": {
+                    "fieldName": "latitude"
+                  },
+                  "longitude": {
+                    "fieldName": "longitude"
+                  }
+                },
+                "extra": [
+                  {
+                    "fieldName": "Emissions"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "emissions-relation-population",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "eb7d8f07",
+                  "fields": [
+                    {
+                      "name": "county_state_name",
+                      "expression": "`county_state_name`"
+                    },
+                    {
+                      "name": "Emissions_per_person",
+                      "expression": "`Emissions_per_person`"
+                    },
+                    {
+                      "name": "population",
+                      "expression": "`population`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": {
+                  "value": "Emissions relative to Population",
+                  "fields": []
+                },
+                "description": {
+                  "value": "Larger populations tend to have lower emissions per person.",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "mark": {
+                "shape": "circle",
+                "size": -2.5
+              },
+              "widgetType": "scatter",
+              "encodings": {
+                "x": {
+                  "fieldName": "Emissions_per_person",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "population",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "extra": [
+                  {
+                    "fieldName": "county_state_name"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 2,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "51d06a20",
+            "spec": {
+              "widgetType": "text",
+              "version": 1,
+              "encodings": {
+                "text": {
+                  "lines": [
+                    "<span style=\"text-align:center;display:block;\"><span style=\"font-size: 24px;font-weight: 500;\">*United States Emissions Breakdown*</span></span>\n",
+                    "\n",
+                    "<span style=\"text-align:center;display:block;\"><span style=\"font-size: 14px;font-weight: 500;\">*Source: data collected by the EPA (Environmental Protection Agency) in 2023*</span></span>"
+                  ],
+                  "fields": []
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "top-15-states-with-more-emissions",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "7ad6acf2",
+                  "fields": [
+                    {
+                      "name": "Total_emissions",
+                      "expression": "`Total_emissions`"
+                    },
+                    {
+                      "name": "state_abbr",
+                      "expression": "`state_abbr`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "<span style=\"text-align:center;display:block;\">Top 15 States with the Most Emissions</span>",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "state_abbr",
+                  "axis": {
+                    "hideTitle": true
+                  },
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "Total_emissions",
+                  "axis": {
+                    "hideTitle": true
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "extra": [
+                  {
+                    "fieldName": "Total_emissions"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 7,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "dc1703d2",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "939c4355",
+                  "fields": [
+                    {
+                      "name": "share",
+                      "expression": "`share`"
+                    },
+                    {
+                      "name": "segment",
+                      "expression": "`segment`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Top 15 States' Share of Total Emissions",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "share",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Share"
+                },
+                "color": {
+                  "fieldName": "segment",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "color": "#E0E0E0",
+                        "value": "Other states"
+                      },
+                      {
+                        "color": {
+                          "position": 1,
+                          "themeColorType": "visualizationColors"
+                        },
+                        "value": "Top 15 states"
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "display": {
+                    "type": "all"
+                  },
+                  "show": true,
+                  "text": {
+                    "fieldName": "share",
+                    "format": {
+                      "decimalPlaces": {
+                        "places": 2,
+                        "type": "max"
+                      },
+                      "type": "number-percent"
+                    }
+                  }
+                },
+                "extra": [
+                  {
+                    "fieldName": "segment"
+                  },
+                  {
+                    "fieldName": "share",
+                    "format": {
+                      "decimalPlaces": {
+                        "places": 2,
+                        "type": "max"
+                      },
+                      "type": "number-percent"
+                    }
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 7,
+            "y": 7,
+            "width": 5,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "f092a6d2",
+            "queries": [
+              {
+                "name": "combo_primary_1",
+                "query": {
+                  "datasetName": "8fbe5c3f",
+                  "fields": [
+                    {
+                      "name": "state_abbr",
+                      "expression": "`state_abbr`"
+                    },
+                    {
+                      "name": "sum(vehicle_miles_traveled)",
+                      "expression": "SUM(`vehicle_miles_traveled`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`emissions_rank` <= 15"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "combo_secondary_1",
+                "query": {
+                  "datasetName": "8fbe5c3f",
+                  "fields": [
+                    {
+                      "name": "state_abbr",
+                      "expression": "`state_abbr`"
+                    },
+                    {
+                      "name": "sum(total_emissions)",
+                      "expression": "SUM(`total_emissions`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`emissions_rank` <= 15"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "combo_base",
+                "query": {
+                  "datasetName": "8fbe5c3f",
+                  "fields": [
+                    {
+                      "name": "state_abbr",
+                      "expression": "`state_abbr`"
+                    },
+                    {
+                      "name": "countdistinct(state_abbr)",
+                      "expression": "COUNT(DISTINCT `state_abbr`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`emissions_rank` <= 15"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Vehicle Miles vs Emissions by State (Top 15)",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "combo",
+              "encodings": {
+                "x": {
+                  "fieldName": "state_abbr",
+                  "axis": {
+                    "hideTitle": true,
+                    "hideLabels": false
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "categorySize": {
+                      "type": "number-of-categories",
+                      "number": 20
+                    },
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "TX",
+                        "FL",
+                        "OH",
+                        "IL",
+                        "GA",
+                        "MO",
+                        "CA",
+                        "TN",
+                        "PA",
+                        "NC",
+                        "MI",
+                        "VA",
+                        "IN",
+                        "AZ",
+                        "AL"
+                      ]
+                    }
+                  }
+                },
+                "y": {
+                  "primary": {
+                    "layers": [
+                      {
+                        "visual": "bar",
+                        "encodings": {
+                          "value": {
+                            "fields": [
+                              {
+                                "fieldName": "sum(vehicle_miles_traveled)",
+                                "displayName": "Vehicle miles traveled"
+                              }
+                            ]
+                          }
+                        },
+                        "queryName": "combo_primary_1"
+                      }
+                    ],
+                    "scale": {
+                      "type": "quantitative"
+                    },
+                    "axis": {
+                      "title": "Vehicle miles traveled",
+                      "hideTitle": true,
+                      "hideLabels": false
+                    }
+                  },
+                  "secondary": {
+                    "layers": [
+                      {
+                        "visual": "line",
+                        "encodings": {
+                          "value": {
+                            "fields": [
+                              {
+                                "fieldName": "sum(total_emissions)",
+                                "displayName": "Total emissions"
+                              }
+                            ]
+                          }
+                        },
+                        "queryName": "combo_secondary_1"
+                      }
+                    ],
+                    "scale": {
+                      "type": "quantitative"
+                    },
+                    "axis": {
+                      "title": "Total emissions",
+                      "hideLabels": false,
+                      "hideTitle": true
+                    }
+                  }
+                },
+                "extra": [
+                  {
+                    "fieldName": "countdistinct(state_abbr)"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 13,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "66761f78",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "8fbe5c3f",
+                  "fields": [
+                    {
+                      "name": "state_abbr",
+                      "expression": "`state_abbr`"
+                    },
+                    {
+                      "name": "sum(emissions_per_job)",
+                      "expression": "SUM(`emissions_per_job`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "<span style=\"text-align:center;display:block;\">Emissions per Job by State</span>",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "state_abbr",
+                  "displayName": "State names. ",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(emissions_per_job)",
+                  "axis": {
+                    "title": "Sum of emissions per job"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 19,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "vehicle-miles-vs-emissions-all-states",
+            "queries": [
+              {
+                "name": "combo_primary_1",
+                "query": {
+                  "datasetName": "8fbe5c3f",
+                  "fields": [
+                    {
+                      "name": "state_abbr",
+                      "expression": "`state_abbr`"
+                    },
+                    {
+                      "name": "sum(vehicle_miles_traveled)",
+                      "expression": "SUM(`vehicle_miles_traveled`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "combo_secondary_1",
+                "query": {
+                  "datasetName": "8fbe5c3f",
+                  "fields": [
+                    {
+                      "name": "state_abbr",
+                      "expression": "`state_abbr`"
+                    },
+                    {
+                      "name": "sum(total_emissions)",
+                      "expression": "SUM(`total_emissions`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": {
+                  "value": "Vehicle Miles vs Emissions by State (All States)",
+                  "fields": []
+                },
+                "description": {
+                  "fields": [],
+                  "value": "More driving does not necessarily mean more emissions."
+                }
+              },
+              "version": 2,
+              "widgetType": "combo",
+              "encodings": {
+                "x": {
+                  "fieldName": "state_abbr",
+                  "axis": {
+                    "hideTitle": true,
+                    "hideLabels": false
+                  },
+                  "scale": {
+                    "categorySize": {
+                      "number": 51,
+                      "type": "number-of-categories"
+                    },
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "primary": {
+                    "layers": [
+                      {
+                        "visual": "bar",
+                        "encodings": {
+                          "value": {
+                            "fields": [
+                              {
+                                "fieldName": "sum(vehicle_miles_traveled)",
+                                "displayName": "Vehicle miles traveled"
+                              }
+                            ]
+                          }
+                        },
+                        "queryName": "combo_primary_1"
+                      }
+                    ],
+                    "scale": {
+                      "type": "quantitative"
+                    },
+                    "axis": {
+                      "hideTitle": true
+                    }
+                  },
+                  "secondary": {
+                    "layers": [
+                      {
+                        "visual": "line",
+                        "encodings": {
+                          "value": {
+                            "fields": [
+                              {
+                                "fieldName": "sum(total_emissions)",
+                                "displayName": "Total emissions"
+                              }
+                            ]
+                          }
+                        },
+                        "queryName": "combo_secondary_1"
+                      }
+                    ],
+                    "scale": {
+                      "type": "quantitative"
+                    },
+                    "axis": {
+                      "hideTitle": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 25,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#1A242C",
+        "dark": "#1A242C"
+      },
+      "widgetBackgroundColor": {
+        "light": "#12181D",
+        "dark": "#12181D"
+      },
+      "widgetBorderColor": {
+        "light": "#11171C",
+        "dark": "#11171C"
+      },
+      "fontColor": {
+        "light": "#E8ECF0",
+        "dark": "#E8ECF0"
+      },
+      "selectionColor": {
+        "light": "#9877C1",
+        "dark": "#9877C1"
+      },
+      "visualizationColors": [
+        "#0B4B60",
+        "#2CFF05",
+        "#4D8CC0",
+        "#9580CE",
+        "#CC90C2",
+        "#EAB0D0",
+        "#F8DAE8"
+      ],
+      "widgetHeaderAlignment": "LEFT",
+      "fontFamily": "Space Grotesk",
+      "widgetPadding": 8,
+      "widgetMargin": 4,
+      "widgetCornerRadius": 0,
+      "widgetShadow": 0,
+      "continuousGradient": {
+        "lightMode": {
+          "fromCategoricalIndex": 0
+        },
+        "darkMode": {
+          "fromCategoricalIndex": 0
+        }
+      },
+      "fontSettings": {
+        "base": {
+          "fontFamily": "Space Grotesk",
+          "fontColor": {
+            "light": "#E8ECF0",
+            "dark": "#E8ECF0"
+          },
+          "fontSize": 14,
+          "fontWeight": 400
+        },
+        "widgetTitle": {
+          "fontSize": 16,
+          "fontWeight": 500
+        },
+        "widgetDescription": {
+          "fontSize": 14,
+          "fontWeight": 400
+        },
+        "fieldTitle": {
+          "textCase": "TEXT_CASE_UPPERCASE",
+          "fontColor": {
+            "light": "#D1D4D8",
+            "dark": "#D1D4D8"
+          },
+          "fontSize": 13,
+          "fontWeight": 400
+        },
+        "fieldValue": {
+          "fontColor": {
+            "light": "#D1D4D8",
+            "dark": "#D1D4D8"
+          },
+          "fontSize": 13,
+          "fontWeight": 400
+        }
+      },
+      "gridLineColor": {
+        "light": "#383E42",
+        "dark": "#383E42"
+      },
+      "axisLineColor": {
+        "light": "#515960",
+        "dark": "#515960"
+      }
+    },
+    "applyModeEnabled": false
+  }
+}
