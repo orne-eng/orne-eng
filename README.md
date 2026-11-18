@@ -1,6 +1,6 @@
 ## Hi there 👋
 
-<markdown
+
 # Hi there, I'm Orne! 👋 
 
 ## Data Engineer & Analytics Engineer | Industrial Engineering Student starting 2027(UBA)
@@ -41,7 +41,7 @@ I specialize in building end-to-end data architectures, automated ingestion pipe
 - **Languages:** Spanish (Native) | English (Fluent/Professional) | German (Elementary - A1)
 - **Looking for:** Remote or hybrid roles as a **Data Engineer**, **Analytics Engineer**, or **End-to-End Data Projects**.
 
-📫 **Connect with me on [LinkedIn]()**!--
-**orne-eng/orne-eng** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+📫 **Connect with me on [(https://www.linkedin.com/in/ornengineer/)]()**
+<!--**orne-eng/orne-eng** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile. -->
 
 
